@@ -1,0 +1,6 @@
+explain the dataset: variance, class distribution, etc.
+look at the plots and explain them
+pick a dataset and try to get good results
+work with CNN.
+dataset: challengin (high number of classes, similar classes)
+focus on regularization maybe
