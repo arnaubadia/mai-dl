@@ -73,7 +73,7 @@ nn.add(Conv2D(32, 3, 3, activation='relu'))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
 nn.add(Flatten())
 nn.add(Dense(16, activation='relu'))
-nn.add(Dense(10, activation='softmax'))
+nn.add(Dense(8, activation='softmax'))
 
 #Compile the NN
 nn.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
@@ -92,11 +92,10 @@ history = nn.fit_generator(
                 epochs=100)
 
 
-"""
 #Evaluate the model with test set
-score = nn.evaluate(x_test, y_test, verbose=0)
-print('test loss:', score[0])
-print('test accuracy:', score[1])
+#score = nn.evaluate(x_test, y_test, verbose=0)
+#print('test loss:', score[0])
+#print('test accuracy:', score[1])
 
 ##Store Plots
 import matplotlib
@@ -109,7 +108,7 @@ plt.title('model accuracy')
 plt.ylabel('accuracy')
 plt.xlabel('epoch')
 plt.legend(['train','val'], loc='upper left')
-plt.savefig('mnist_cnn_accuracy.pdf')
+plt.savefig('bacteria_count_cnn_accuracy.pdf')
 plt.close()
 #Loss plot
 plt.plot(history.history['loss'])
@@ -118,5 +117,4 @@ plt.title('model loss')
 plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train','val'], loc='upper left')
-plt.savefig('mnist_cnn_loss.pdf')
-"""
+plt.savefig('bacteria_count_cnn_loss.pdf')
