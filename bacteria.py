@@ -20,9 +20,12 @@ def get_partition_indices(batch_size=64, train_percentage=0.8):
 
 def batch_generator(indices,batch_size=64):
     DATASET_ROOT = 'segment_enumeration_dataset'
+    NUMPY_DATASET_FOLDER = 'SegmentsNumpy'
 
     json_string = open(os.path.join(DATASET_ROOT,'enumeration_segments.json')).read()
     json_dict = json.loads(json_string)
+
+    labels = np.load(os.path.join(DATASET_ROOT,'labels.npy'))
 
     while True:
         #at the end of epoch, reshufle
@@ -31,15 +34,9 @@ def batch_generator(indices,batch_size=64):
             batch_images = []
             batch_labels = []
             for j in indices[i:i+batch_size]:
-                segment_id = 'Segment_n_' + str(j)
-                # TODO: INSTEAD OF READING IMAGES, CONVERTING TO NUMPY AND RESIZING
-                # EVERY TIME -> DO IT ONCE AND STORE IT IN A NPY FILE AND READ FROM THERE
-                image_path = os.path.join(DATASET_ROOT,json_dict[segment_id]['Segment Relative Path'])
-                img = io.imread(image_path)
-                # resize the image to 64 x 64.
-                # Resize function also normalizes the values
-                img = resize(img, (64,64), anti_aliasing=True)
-                label = json_dict[segment_id]['data']['segment_type']['data']
+                segment_path = 'Segment_n_' + str(j) + '.npy'
+                img = np.load(os.path.join(DATASET_ROOT,NUMPY_DATASET_FOLDER,segment_path))
+                label = labels[j]
                 batch_images.append(img)
                 batch_labels.append(label)
 
@@ -81,9 +78,21 @@ nn.add(Dense(10, activation='softmax'))
 #Compile the NN
 nn.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
 
-#Start training
-history = nn.fit(x_train,y_train,batch_size=128,epochs=20, validation_split=0.15)
+# generators
+train_indices, validation_indices = get_partition_indices(batch_size=64, train_percentage=0.8)
+train_gen = batch_generator(train_indices,batch_size=64)
+validation_gen = batch_generator(validation_indices,batch_size=64)
 
+#Start training
+history = nn.fit_generator(
+                train_gen,
+                steps_per_epoch=len(train_indices)/64,
+                validation_data=validation_gen,
+                validation_steps=len(validation_indices)/64,
+                epochs=100)
+
+
+"""
 #Evaluate the model with test set
 score = nn.evaluate(x_test, y_test, verbose=0)
 print('test loss:', score[0])
@@ -110,3 +119,4 @@ plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train','val'], loc='upper left')
 plt.savefig('mnist_cnn_loss.pdf')
+"""
