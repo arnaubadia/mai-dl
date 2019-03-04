@@ -83,13 +83,18 @@ train_indices, validation_indices = get_partition_indices(batch_size=64, train_p
 train_gen = batch_generator(train_indices,batch_size=64)
 validation_gen = batch_generator(validation_indices,batch_size=64)
 
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+mcp_save = ModelCheckpoint('weights-{epoch:02d}-{val_acc:.4f}.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+
 #Start training
 history = nn.fit_generator(
                 train_gen,
                 steps_per_epoch=len(train_indices)/64,
                 validation_data=validation_gen,
                 validation_steps=len(validation_indices)/64,
-                epochs=100)
+                callbacks=[earlyStopping, mcp_save],
+                epochs=3)
 
 
 #Evaluate the model with test set
@@ -118,3 +123,18 @@ plt.ylabel('loss')
 plt.xlabel('epoch')
 plt.legend(['train','val'], loc='upper left')
 plt.savefig('bacteria_count_cnn_loss.pdf')
+
+#Saving model and weights
+# from keras.models import model_from_json
+# nn_json = nn.to_json()
+# with open('nn.json', 'w') as json_file:
+#        json_file.write(nn_json)
+#weights_file = "weights-bacteria_"+str(max(history.history['val_acc']))+".hdf5"
+#nn.save_weights(weights_file,overwrite=True)
+
+#Loading model and weights
+#json_file = open('nn.json','r')
+#nn_json = json_file.read()
+#json_file.close()
+#nn = model_from_json(nn_json)
+#nn.load_weights(weights_file)
