@@ -62,20 +62,24 @@ else:
 
 #Define the NN architecture
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Conv2D, MaxPooling2D, Flatten
+from keras.layers import Dense, Activation, Conv2D, MaxPooling2D, Flatten, Dropout
 #Two hidden layers
 nn = Sequential()
-nn.add(Conv2D(64, 3, 3, activation='relu', input_shape=input_shape))
+nn.add(Conv2D(200, (3, 3), activation='relu', input_shape=input_shape))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
-nn.add(Conv2D(32, 3, 3, activation='relu'))
+nn.add(Conv2D(100, (3, 3), activation='relu'))
+nn.add(MaxPooling2D(pool_size=(2, 2)))
+nn.add(Conv2D(50, (4, 4), activation='relu'))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
 nn.add(Flatten())
-nn.add(Dense(16, activation='relu'))
+nn.add(Dropout(0.5))
+nn.add(Dense(128, activation='relu'))
+nn.add(Dense(64, activation='relu'))
 nn.add(Dense(8, activation='softmax'))
 
 
 #Compile the NN
-nn.compile(optimizer='sgd',loss='categorical_crossentropy',metrics=['accuracy'])
+nn.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
 
 # generators
 train_indices, test_indices = get_partition_indices(batch_size=64, train_percentage=0.9)
@@ -83,11 +87,22 @@ x_train, y_train = get_data(train_indices,batch_size=64)
 x_test, y_test = get_data(test_indices,batch_size=64)
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint
-earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+earlyStopping = EarlyStopping(monitor='val_loss', patience=15, verbose=0, mode='min')
 mcp_save = ModelCheckpoint('best-weights.hdf5', save_best_only=True, monitor='val_loss', mode='min')
 
+# deal with class imbalance: assign class weights
+y_train_only_labels = [np.where(r==1)[0][0] for r in y_train]
+from sklearn.utils import class_weight
+class_weights = class_weight.compute_class_weight('balanced',
+                np.unique(y_train_only_labels), y_train_only_labels)
+
+class_weights = {i:class_weights[i] for i in range(8)}
+
 #Start training
-history = nn.fit(x_train,y_train,batch_size=64,epochs=2, validation_split=0.15, callbacks=[earlyStopping, mcp_save])
+#history = nn.fit(x_train,y_train, batch_size=64, epochs=100, validation_split=0.15,
+#                 class_weight=class_weights, callbacks=[earlyStopping, mcp_save])
+history = nn.fit(x_train,y_train, batch_size=64, epochs=100, validation_split=0.15,
+                 callbacks=[earlyStopping, mcp_save])
 
 #Restore the model with the best weights we found during training
 nn.load_weights('best-weights.hdf5')
@@ -187,8 +202,13 @@ def plot_confusion_matrix(y_true, y_pred, classes,
     fig.tight_layout()
     return ax
 
-plot_confusion_matrix(np.argmax(y_test,axis=1), y_pred, target_names, normalize=True)
+plot_confusion_matrix(np.argmax(y_test,axis=1), y_pred, target_names, normalize=False)
 plt.savefig('bacteria_count_confusion_matrix.pdf')
+plt.close()
+
+plot_confusion_matrix(np.argmax(y_test,axis=1), y_pred, target_names, normalize=True)
+plt.savefig('bacteria_count_confusion_matrix_normalized.pdf')
+
 
 """
 #Saving model and weights
