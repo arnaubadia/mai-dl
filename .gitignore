@@ -1,4 +1,5 @@
 segment_enumeration_dataset
 bsc/segment_enumeration_dataset
+bsc/bacteria
 *.docx
 bsc/mnist

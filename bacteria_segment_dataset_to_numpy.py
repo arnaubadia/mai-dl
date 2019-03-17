@@ -6,7 +6,7 @@ import json
 import keras
 
 DATASET_ROOT = 'segment_enumeration_dataset'
-NUMPY_DATASET_FOLDER = 'SegmentsNumpy'
+NUMPY_DATASET_FOLDER = 'SegmentsNumpy128'
 
 json_string = open(os.path.join(DATASET_ROOT,'enumeration_segments.json')).read()
 json_dict = json.loads(json_string)
@@ -18,7 +18,7 @@ for i in range(dataset_size):
     image_path = os.path.join(DATASET_ROOT,json_dict[segment_id]['Segment Relative Path'])
     img = io.imread(image_path)
     # resize the image to 128 x 128. Resize function also normalizes the values
-    img = resize(img, (64,64), anti_aliasing=True)
+    img = resize(img, (128,128), anti_aliasing=True)
     label = json_dict[segment_id]['data']['segment_type']['data']
     # save image to numpy file
     np.save(os.path.join(DATASET_ROOT,NUMPY_DATASET_FOLDER,segment_id + '.npy'), img)

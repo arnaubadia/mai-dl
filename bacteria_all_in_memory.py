@@ -65,23 +65,24 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Conv2D, MaxPooling2D, Flatten, Dropout
 #Two hidden layers
 nn = Sequential()
-nn.add(Conv2D(200, (3, 3), activation='relu', input_shape=input_shape))
+nn.add(Conv2D(128, (4, 4), activation='relu', input_shape=input_shape))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
-nn.add(Conv2D(100, (3, 3), activation='relu'))
+nn.add(Conv2D(64, (3, 3), activation='relu'))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
-nn.add(Conv2D(50, (4, 4), activation='relu'))
+nn.add(Conv2D(32, (3, 3), activation='relu'))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
 nn.add(Flatten())
-nn.add(Dropout(0.5))
+#nn.add(Dropout(0.5))
 nn.add(Dense(128, activation='relu'))
+#nn.add(Dropout(0.5))
 nn.add(Dense(64, activation='relu'))
+#nn.add(Dropout(0.5))
 nn.add(Dense(8, activation='softmax'))
 
 
 #Compile the NN
 nn.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
 
-# generators
 train_indices, test_indices = get_partition_indices(batch_size=64, train_percentage=0.9)
 x_train, y_train = get_data(train_indices,batch_size=64)
 x_test, y_test = get_data(test_indices,batch_size=64)
@@ -98,11 +99,29 @@ class_weights = class_weight.compute_class_weight('balanced',
 
 class_weights = {i:class_weights[i] for i in range(8)}
 
+# data augmentation
+from keras.preprocessing.image import ImageDataGenerator
+datagen = ImageDataGenerator(
+    featurewise_center=True,
+    featurewise_std_normalization=True,
+    rotation_range=90,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    horizontal_flip=True)
+
+# compute quantities required for featurewise normalization
+# (std, mean, and principal components if ZCA whitening is applied)
+datagen.fit(x_train)
+
 #Start training
-#history = nn.fit(x_train,y_train, batch_size=64, epochs=100, validation_split=0.15,
+#history = nn.fit(x_train,y_train, batch_size=64, epochs=150, validation_split=0.15,
 #                 class_weight=class_weights, callbacks=[earlyStopping, mcp_save])
-history = nn.fit(x_train,y_train, batch_size=64, epochs=100, validation_split=0.15,
+history = nn.fit(x_train,y_train, batch_size=64, epochs=150, validation_split=0.15,
                  callbacks=[earlyStopping, mcp_save])
+
+#history = nn.fit_generator(datagen.flow(x_train, y_train, batch_size=64),
+#                           steps_per_epoch=len(x_train) / 64,
+#                            epochs=100)
 
 #Restore the model with the best weights we found during training
 nn.load_weights('best-weights.hdf5')

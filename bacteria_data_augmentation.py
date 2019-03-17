@@ -1,9 +1,14 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import os
 from skimage import io
 from skimage.transform import resize
 import numpy as np
 import json
 from keras import backend as K
+
+
 
 #val percentage is a % of the train percentage
 def get_partition_indices(batch_size=64, train_percentage=0.9, val_percentage=0.15):
@@ -22,7 +27,7 @@ def get_partition_indices(batch_size=64, train_percentage=0.9, val_percentage=0.
 # get array of data in memory
 def get_data(indices,batch_size=64):
     DATASET_ROOT = 'segment_enumeration_dataset'
-    NUMPY_DATASET_FOLDER = 'SegmentsNumpy128'
+    NUMPY_DATASET_FOLDER = 'SegmentsNumpy'
 
     json_string = open(os.path.join(DATASET_ROOT,'enumeration_segments.json')).read()
     json_dict = json.loads(json_string)
@@ -39,7 +44,7 @@ def get_data(indices,batch_size=64):
     y = labels[indices]
 
     #Find which format to use (depends on the backend), and compute input_shape
-    img_rows, img_cols, channels = 128, 128, 3
+    img_rows, img_cols, channels = 64, 64, 3
     if K.image_data_format() == 'channels_first':
         x = x.reshape(x.shape[0], channels, img_rows, img_cols)
     else:
@@ -50,7 +55,7 @@ def get_data(indices,batch_size=64):
 # get batch generator
 def batch_generator(indices,batch_size=64):
     DATASET_ROOT = 'segment_enumeration_dataset'
-    NUMPY_DATASET_FOLDER = 'SegmentsNumpy128'
+    NUMPY_DATASET_FOLDER = 'SegmentsNumpy'
 
     json_string = open(os.path.join(DATASET_ROOT,'enumeration_segments.json')).read()
     json_dict = json.loads(json_string)
@@ -73,7 +78,7 @@ def batch_generator(indices,batch_size=64):
             x = np.array(batch_images)
             y = np.array(batch_labels)
             #Find which format to use (depends on the backend), and compute input_shape
-            img_rows, img_cols, channels = 128, 128, 3
+            img_rows, img_cols, channels = 64, 64, 3
             if K.image_data_format() == 'channels_first':
                 x = x.reshape(x.shape[0], channels, img_rows, img_cols)
             else:
@@ -85,7 +90,7 @@ def batch_generator(indices,batch_size=64):
 #Find which format to use (depends on the backend), and compute input_shape
 
 #dataset resolution
-img_rows, img_cols, channels = 128, 128, 3
+img_rows, img_cols, channels = 64, 64, 3
 
 if K.image_data_format() == 'channels_first':
     input_shape = (channels, img_rows, img_cols)
@@ -104,12 +109,13 @@ nn.add(MaxPooling2D(pool_size=(2, 2)))
 nn.add(Conv2D(32, (3, 3), activation='relu'))
 nn.add(MaxPooling2D(pool_size=(2, 2)))
 nn.add(Flatten())
-nn.add(Dropout(0.5))
+#nn.add(Dropout(0.3))
 nn.add(Dense(128, activation='relu'))
-nn.add(Dropout(0.5))
+#nn.add(Dropout(0.3))
 nn.add(Dense(64, activation='relu'))
-nn.add(Dropout(0.5))
+#nn.add(Dropout(0.3))
 nn.add(Dense(8, activation='softmax'))
+
 
 #Compile the NN
 nn.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
@@ -117,21 +123,49 @@ nn.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy']
 # generators
 train_indices, validation_indices, test_indices = get_partition_indices(batch_size=64,
                                         train_percentage=0.9, val_percentage=0.15)
-train_gen = batch_generator(train_indices,batch_size=64)
+x_train, y_train = get_data(train_indices,batch_size=64)
 validation_gen = batch_generator(validation_indices,batch_size=64)
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint
-earlyStopping = EarlyStopping(monitor='val_loss', patience=15, verbose=0, mode='min')
+earlyStopping = EarlyStopping(monitor='val_loss', patience=25, verbose=0, mode='min')
 mcp_save = ModelCheckpoint('best-weights.hdf5', save_best_only=True, monitor='val_loss', mode='min')
 
+# deal with class imbalance: assign class weights
+y_train_only_labels = [np.where(r==1)[0][0] for r in y_train]
+from sklearn.utils import class_weight
+class_weights = class_weight.compute_class_weight('balanced',
+                np.unique(y_train_only_labels), y_train_only_labels)
+
+class_weights = {i:class_weights[i] for i in range(8)}
+
+# data augmentation
+from keras.preprocessing.image import ImageDataGenerator
+datagen = ImageDataGenerator(
+    #featurewise_center=True,
+    #featurewise_std_normalization=True,
+    rotation_range=90,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    zoom_range= [0.9, 1.1],
+    vertical_flip=True,
+    horizontal_flip=True)
+
+# compute quantities required for featurewise normalization
+# (std, mean, and principal components if ZCA whitening is applied)
+datagen.fit(x_train)
+
 #Start training
-history = nn.fit_generator(
-                train_gen,
-                steps_per_epoch=len(train_indices)/64,
-                validation_data=validation_gen,
-                validation_steps=len(validation_indices)/64,
-                callbacks=[earlyStopping, mcp_save],
-                epochs=100)
+#history = nn.fit(x_train,y_train, batch_size=64, epochs=150, validation_split=0.15,
+#                 class_weight=class_weights, callbacks=[earlyStopping, mcp_save])
+#history = nn.fit(x_train,y_train, batch_size=64, epochs=150, validation_split=0.15,
+#                 callbacks=[earlyStopping, mcp_save])
+
+history = nn.fit_generator(datagen.flow(x_train, y_train, batch_size=64),
+                           steps_per_epoch=len(x_train) / 64,
+                           validation_data=validation_gen,
+                           validation_steps=len(validation_indices)/64,
+                           callbacks=[earlyStopping, mcp_save],
+                           epochs=100)
 
 
 #Restore the model with the best weights we found during training
