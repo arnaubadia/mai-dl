@@ -144,9 +144,9 @@ datagen = ImageDataGenerator(
     #featurewise_center=True,
     #featurewise_std_normalization=True,
     rotation_range=90,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    zoom_range= [0.9, 1.1],
+    width_shift_range=0.01,
+    height_shift_range=0.01,
+    zoom_range= [0.95, 1.05],
     vertical_flip=True,
     horizontal_flip=True)
 
@@ -165,7 +165,7 @@ history = nn.fit_generator(datagen.flow(x_train, y_train, batch_size=64),
                            validation_data=validation_gen,
                            validation_steps=len(validation_indices)/64,
                            callbacks=[earlyStopping, mcp_save],
-                           epochs=100)
+                           epochs=200)
 
 
 #Restore the model with the best weights we found during training
